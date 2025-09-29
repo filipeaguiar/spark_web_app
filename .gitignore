@@ -1,0 +1,16 @@
+# Virtual Environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Credentials file (located in the parent directory)
+/credentials.json
+
+# Temporary files
+pergunta_para_ia.md
+
+# IDE files
+.idea/
+.vscode/

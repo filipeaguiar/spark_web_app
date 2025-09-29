@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataFlow Runner</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <i class="fa-solid fa-rocket"></i>
+                DataFlow Runner
+            </h1>
+            <p>Faça o upload de um arquivo <code>.sql</code> para validar e executar em nosso cluster de dados.</p>
+        </header>
+        
+        <form id="upload-form">
+            <div class="file-upload-wrapper" id="file-drop-zone">
+                <input type="file" id="sql-file" name="file" accept=".sql" required>
+                <div class="file-upload-text">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Arraste e solte o arquivo .sql aqui ou <strong>clique para selecionar</strong>.</span>
+                </div>
+            </div>
+            <div id="file-name" class="hidden"></div>
+            <button type="submit" id="verify-button" disabled><i class="fa-solid fa-list-check"></i>Verificar Tabelas</button>
+        </form>
+
+        <div id="spinner" class="hidden"></div>
+
+        <div id="result-card" class="result-card hidden">
+            <h2><i class="fa-solid fa-magnifying-glass"></i> Resultado da Verificação</h2>
+            <div id="result-message"></div>
+            <div id="tables-info">
+                <table class="status-table">
+                    <thead>
+                        <tr>
+                            <th>Tabela</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tables-status-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="action-buttons-container" class="action-buttons hidden">
+            <button id="download-sql-button"><i class="fa-solid fa-download"></i>Download SQL</button>
+            <button id="execute-button"><i class="fa-solid fa-play"></i>Executar Consulta</button>
+        </div>
+
+        <div id="final-message" class="hidden"></div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const form = document.getElementById('upload-form');
+        const sqlFileInput = document.getElementById('sql-file');
+        const fileDropZone = document.getElementById('file-drop-zone');
+        const fileNameDisplay = document.getElementById('file-name');
+        const verifyButton = document.getElementById('verify-button');
+        const spinner = document.getElementById('spinner');
+        const resultCard = document.getElementById('result-card');
+        const resultMessage = document.getElementById('result-message');
+        const tablesStatusTbody = document.getElementById('tables-status-tbody');
+        const actionButtonsContainer = document.getElementById('action-buttons-container');
+        const executeButton = document.getElementById('execute-button');
+        const downloadSqlButton = document.getElementById('download-sql-button');
+        const finalMessage = document.getElementById('final-message');
+
+        let currentQueryId = null;
+        let expandedSqlContent = null;
+
+        // --- Event Listeners ---
+        sqlFileInput.addEventListener('change', handleFileSelection);
+        form.addEventListener('submit', handleVerificationSubmit);
+        executeButton.addEventListener('click', handleExecuteJob);
+        downloadSqlButton.addEventListener('click', handleDownloadSql);
+
+        // --- Drag and Drop Listeners ---
+        fileDropZone.addEventListener('dragover', (e) => { e.preventDefault(); fileDropZone.classList.add('drag-over'); });
+        fileDropZone.addEventListener('dragleave', (e) => { e.preventDefault(); fileDropZone.classList.remove('drag-over'); });
+        fileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                sqlFileInput.files = e.dataTransfer.files;
+                handleFileSelection();
+            }
+        });
+
+        // --- Functions ---
+        function handleFileSelection() {
+            if (sqlFileInput.files.length > 0) {
+                const fileName = sqlFileInput.files[0].name;
+                fileNameDisplay.innerHTML = `<i class="fa-solid fa-file-code"></i> ${fileName}`;
+                fileNameDisplay.classList.remove('hidden');
+                verifyButton.disabled = false;
+            }
+        }
+
+        async function handleVerificationSubmit(e) {
+            e.preventDefault();
+            resetState();
+            spinner.classList.remove('hidden');
+            const formData = new FormData();
+            formData.append('file', sqlFileInput.files[0]);
+            try {
+                const response = await fetch('/upload-and-verify', { method: 'POST', body: formData });
+                const result = await response.json();
+                updateVerificationUI(result);
+            } catch (error) {
+                showConnectionError();
+            }
+        }
+
+        function updateVerificationUI(result) {
+            spinner.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+            resultMessage.textContent = result.message;
+            actionButtonsContainer.classList.remove('hidden');
+
+            if (result.expanded_sql) {
+                expandedSqlContent = result.expanded_sql;
+                downloadSqlButton.classList.remove('hidden');
+            } else {
+                downloadSqlButton.classList.add('hidden');
+            }
+
+            if (result.tables_status && result.tables_status.length > 0) {
+                tablesStatusTbody.innerHTML = result.tables_status.map(status => {
+                    const statusClass = status.found ? 'found' : 'missing';
+                    const statusIcon = status.found ? 'fa-check' : 'fa-xmark';
+                    const statusText = status.found ? 'Encontrada' : 'Não Encontrada';
+                    return `<tr>
+                                <td>${status.name}</td>
+                                <td><span class="status-indicator ${statusClass}"><i class="fa-solid ${statusIcon}"></i> ${statusText}</span></td>
+                            </tr>`;
+                }).join('');
+            }
+
+            executeButton.disabled = !result.success;
+            if (result.success) {
+                resultMessage.className = 'success';
+                currentQueryId = result.query_id;
+            } else {
+                resultMessage.className = 'error';
+            }
+        }
+
+        function handleDownloadSql() {
+            if (!expandedSqlContent) return;
+            const blob = new Blob([expandedSqlContent], { type: 'text/sql' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'query_expandida.sql';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showConnectionError() {
+            spinner.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+            resultMessage.textContent = 'Erro de conexão com o servidor.';
+            resultMessage.className = 'error';
+        }
+
+        async function handleExecuteJob() {
+            if (!currentQueryId) return;
+            resultCard.classList.add('hidden');
+            actionButtonsContainer.classList.add('hidden');
+            spinner.classList.remove('hidden');
+            finalMessage.classList.remove('hidden');
+            finalMessage.textContent = 'Iniciando job... Isso pode levar alguns minutos.';
+            finalMessage.className = 'info';
+            try {
+                await fetch(`/execute-job?query_id=${currentQueryId}`, { method: 'POST' });
+                const intervalId = setInterval(() => checkJobStatus(currentQueryId, intervalId), 3000);
+            } catch (error) {
+                spinner.classList.add('hidden');
+                finalMessage.textContent = 'Erro ao iniciar o job.';
+                finalMessage.className = 'error';
+            }
+        }
+
+        async function checkJobStatus(queryId, intervalId) {
+            try {
+                const response = await fetch(`/job-status/${queryId}`);
+                const result = await response.json();
+                finalMessage.textContent = result.message || 'Job em execução...';
+                if (result.status === 'success' || result.status === 'failed') {
+                    clearInterval(intervalId);
+                    spinner.classList.add('hidden');
+                    finalMessage.className = result.status === 'success' ? 'success' : 'error';
+                }
+            } catch (error) {
+                clearInterval(intervalId);
+                spinner.classList.add('hidden');
+                finalMessage.textContent = 'Erro de conexão ao verificar status do job.';
+                finalMessage.className = 'error';
+            }
+        }
+
+        function resetState() {
+            spinner.classList.add('hidden');
+            resultCard.classList.add('hidden');
+            finalMessage.classList.add('hidden');
+            actionButtonsContainer.classList.add('hidden');
+            tablesStatusTbody.innerHTML = '';
+            resultMessage.textContent = '';
+            currentQueryId = null;
+            expandedSqlContent = null;
+        }
+    </script>
+</body>
+</html>

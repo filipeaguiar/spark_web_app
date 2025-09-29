@@ -1,0 +1,1 @@
+# Este arquivo não é mais usado. A lógica foi consolidada em app/main.py.
