@@ -14,3 +14,4 @@ pergunta_para_ia.md
 # IDE files
 .idea/
 .vscode/
+.env
