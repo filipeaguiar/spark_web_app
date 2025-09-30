@@ -50,7 +50,7 @@ def check_tables_in_minio(tables: list[str]) -> tuple[list[str], list[str]]:
     """Verifica a existência de arquivos Parquet para as tabelas no MinIO usando boto3."""
     print(f"Verificando tabelas no MinIO com boto3: {tables}")
     
-    with open('../credentials.json') as f:
+    with open('credentials.json') as f:
         credentials = json.load(f)
 
     s3_client = boto3.client(
@@ -91,7 +91,7 @@ def execute_spark_job(query_id: str, query: str, tables: list[str], output_dir_n
 
     spark = None
     try:
-        with open('../credentials.json') as f:
+        with open('credentials.json') as f:
             credentials = json.load(f)
 
         JOB_STATUSES[query_id]["message"] = "Configurando e iniciando a sessão Spark..."
