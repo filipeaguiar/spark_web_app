@@ -2,6 +2,7 @@ import uuid
 import json
 import boto3
 import sqlglot
+import sql_unviewer
 from fastapi import FastAPI, Request, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -29,10 +30,13 @@ JOB_STATUSES = {}
 def run_unviewer(sql_content: str) -> str:
     """Executa o sql-unviewer no conteúdo SQL fornecido."""
     print("Executando sql_unviewer.unview...")
-    import sql_unviewer
-    expanded_sql = sql_unviewer.unview(sql_content)
-    print("SQL expandido com sucesso.")
-    return expanded_sql
+    try:
+        expanded_sql = sql_unviewer.unview(sql_content)
+        print("SQL expandido com sucesso.")
+        return expanded_sql
+    except Exception as e:
+        print(f"Erro durante a execução do sql_unviewer: {e}")
+        raise ValueError(f"Falha ao expandir o SQL: {e}")
 
 def parse_sql_for_tables(sql: str) -> list[str]:
     """Usa sqlglot para extrair nomes de tabelas de uma consulta SQL."""
