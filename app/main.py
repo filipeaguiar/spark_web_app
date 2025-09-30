@@ -38,7 +38,8 @@ def parse_sql_for_tables(sql: str) -> list[str]:
     """Usa sqlglot para extrair nomes de tabelas de uma consulta SQL."""
     try:
         parsed = sqlglot.parse(sql, read="spark")
-        tables = {table.name for expression in parsed for table in expression.find_all(sqlglot.exp.Table)}
+        # CORREÇÃO: Normaliza os nomes das tabelas para minúsculas para corresponder ao armazenamento.
+        tables = {table.name.lower() for expression in parsed for table in expression.find_all(sqlglot.exp.Table)}
         unique_tables = sorted(list(tables))
         print(f"Tabelas encontradas (com sqlglot): {unique_tables}")
         return unique_tables
@@ -128,8 +129,9 @@ def execute_spark_job(query_id: str, query: str, tables: list[str], output_dir_n
 
         JOB_STATUSES[query_id]["message"] = "Executando consulta principal..."
         
-        # Traduz o dialeto do SQL expandido (Postgres) para o dialeto do Spark
-        spark_sql = sqlglot.transpile(query, read="postgres", write="spark")[0]
+        # CORREÇÃO: Normaliza a consulta para minúsculas para corresponder às views
+        # e transpila do dialeto Postgres para o dialeto Spark.
+        spark_sql = sqlglot.transpile(query, read="postgres", write="spark", normalize=True)[0]
         query_cleaned = spark_sql.replace("agh.", "").strip().rstrip(';')
         
         result_df = spark.sql(query_cleaned)
