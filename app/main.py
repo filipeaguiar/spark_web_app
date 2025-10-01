@@ -41,10 +41,8 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
 @task
 def get_minio_credentials(aws_conn_id: str) -> dict:
-    \"""\
-    Busca as credenciais de uma conexão S3/MinIO do Airflow e as retorna
-    como um dicionário de variáveis de ambiente.
-    \"""\
+    # Busca as credenciais de uma conexão S3/MinIO do Airflow e as retorna
+    # como um dicionário de variáveis de ambiente.
     hook = S3Hook(aws_conn_id=aws_conn_id)
     session = hook.get_session()
     credentials = session.get_credentials()
