@@ -5,6 +5,7 @@ import sqlglot
 import sql_unviewer
 import os
 import subprocess
+from string import Template
 from fastapi import FastAPI, Request, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -31,7 +32,7 @@ JOB_STATUSES = {}
 
 DAG_TEMPLATE = """\
 import os
-
+import pendulum
 from airflow.decorators import dag, task
 from airflow.models.dag import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
@@ -43,11 +44,9 @@ def get_minio_credentials(aws_conn_id: str) -> dict:
     # como um dicionário de variáveis de ambiente.
     hook = S3Hook(aws_conn_id=aws_conn_id)
     
-    # Obter o objeto de conexão do Airflow para acessar o campo 'extra'
     connection = hook.get_connection(aws_conn_id)
     endpoint_url = connection.extra_dejson.get('endpoint_url')
 
-    # Obter credenciais de acesso via a sessão do hook
     session = hook.get_session()
     credentials = session.get_credentials()
     
@@ -58,22 +57,19 @@ def get_minio_credentials(aws_conn_id: str) -> dict:
     }
 
 with DAG(
-    dag_id="{dag_id}",
+    dag_id="$dag_id",
     schedule=None,
     start_date=pendulum.datetime(2023, 1, 1, tz="UTC"),
     catchup=False,
     tags=["generated", "spark_submit"],
 ) as dag:
     
-    # Tarefa para obter as credenciais da conexão 'minio'
     env_creds = get_minio_credentials(aws_conn_id="minio")
 
-    # Adiciona o caminho do binário do Spark ao PATH e mescla com as credenciais
     @task
     def build_spark_env(credentials: dict) -> dict:
         spark_env = credentials.copy()
         spark_bin_path = "/home/adm-local/airflow_env/bin"
-        # Garante que o PATH existente seja preservado
         existing_path = os.environ.get("PATH", "")
         spark_env["PATH"] = f"{spark_bin_path}:{existing_path}"
         return spark_env
@@ -83,14 +79,13 @@ with DAG(
     spark_task = SparkSubmitOperator(
         task_id="run_spark_query",
         conn_id="Spark_Local",
-        application="{spark_executor_path}",
+        application="$spark_executor_path",
         application_args=[
             "--sql-file",
-            "{sql_file_path}",
+            "$sql_file_path",
             "--output-path",
-            "{output_path}",
+            "$output_path",
         ],
-        # Injeta as credenciais e o PATH corrigido como variáveis de ambiente
         env_vars=env_vars,
     )
 """
@@ -289,11 +284,9 @@ async def generate_dag(query_id: str):
         base_filename = query_data["output_dir_name"]
         dag_id = f"spark_job_{base_filename}"
         
-        # Caminho absoluto para o diretório do projeto
         project_root = "/home/filipe/Documentos/Projetos/spark/spark_web_app"
         spark_executor_path = os.path.join(project_root, "spark_executor.py")
 
-        # Caminhos no ambiente Airflow
         airflow_dags_dir = "/home/adm-local/airflow/dags"
         airflow_sql_dir = os.path.join(airflow_dags_dir, "sql")
         
@@ -301,32 +294,28 @@ async def generate_dag(query_id: str):
         dag_file_path = os.path.join(airflow_dags_dir, f"dag_{base_filename}.py")
         output_path = f"s3a://silver/faturamento/{base_filename}/result"
 
-        # --- Criar Diretórios e Arquivos ---
         os.makedirs(airflow_sql_dir, exist_ok=True)
 
-        # Salvar arquivo SQL
         print(f"Salvando SQL em: {sql_file_path}")
         with open(sql_file_path, "w", encoding="utf-8") as f:
             f.write(query_data["query"])
         
-        # Mudar proprietário do arquivo SQL
         print(f"Alterando proprietário de {sql_file_path} para adm-local:adm-local")
         subprocess.run(["chown", "adm-local:adm-local", sql_file_path], check=True)
 
-        # Gerar conteúdo da DAG
-        dag_content = DAG_TEMPLATE.format(
+        # Gerar conteúdo da DAG usando string.Template
+        template = Template(DAG_TEMPLATE)
+        dag_content = template.substitute(
             dag_id=dag_id,
             spark_executor_path=spark_executor_path,
             sql_file_path=sql_file_path,
             output_path=output_path,
         )
 
-        # Salvar arquivo da DAG
         print(f"Salvando DAG em: {dag_file_path}")
         with open(dag_file_path, "w", encoding="utf-8") as f:
             f.write(dag_content)
 
-        # Mudar proprietário do arquivo da DAG
         print(f"Alterando proprietário de {dag_file_path} para adm-local:adm-local")
         subprocess.run(["chown", "adm-local:adm-local", dag_file_path], check=True)
 
