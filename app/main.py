@@ -30,9 +30,7 @@ JOB_STATUSES = {}
 # =============================================================================
 
 DAG_TEMPLATE = """\
-from __future__ import annotations
-
-import pendulum
+import os
 
 from airflow.decorators import dag, task
 from airflow.models.dag import DAG
@@ -44,18 +42,20 @@ def get_minio_credentials(aws_conn_id: str) -> dict:
     # Busca as credenciais de uma conexão S3/MinIO do Airflow e as retorna
     # como um dicionário de variáveis de ambiente.
     hook = S3Hook(aws_conn_id=aws_conn_id)
-    session = hook.get_session()
-    credentials = session.get_credentials()
     
-    # O endpoint_url geralmente está no campo 'extra' da conexão
+    # Obter o objeto de conexão do Airflow para acessar o campo 'extra'
     connection = hook.get_connection(aws_conn_id)
     endpoint_url = connection.extra_dejson.get('endpoint_url')
 
-    return {{
+    # Obter credenciais de acesso via a sessão do hook
+    session = hook.get_session()
+    credentials = session.get_credentials()
+    
+    return {
         "MINIO_ENDPOINT_URL": endpoint_url,
         "MINIO_ACCESS_KEY": credentials.access_key,
         "MINIO_SECRET_KEY": credentials.secret_key,
-    }}
+    }
 
 with DAG(
     dag_id="{dag_id}",
@@ -66,7 +66,19 @@ with DAG(
 ) as dag:
     
     # Tarefa para obter as credenciais da conexão 'minio'
-    env_vars_credentials = get_minio_credentials(aws_conn_id="minio")
+    env_creds = get_minio_credentials(aws_conn_id="minio")
+
+    # Adiciona o caminho do binário do Spark ao PATH e mescla com as credenciais
+    @task
+    def build_spark_env(credentials: dict) -> dict:
+        spark_env = credentials.copy()
+        spark_bin_path = "/home/adm-local/airflow_env/bin"
+        # Garante que o PATH existente seja preservado
+        existing_path = os.environ.get("PATH", "")
+        spark_env["PATH"] = f"{spark_bin_path}:{existing_path}"
+        return spark_env
+
+    env_vars = build_spark_env(credentials=env_creds)
 
     spark_task = SparkSubmitOperator(
         task_id="run_spark_query",
@@ -78,8 +90,8 @@ with DAG(
             "--output-path",
             "{output_path}",
         ],
-        # Injeta as credenciais como variáveis de ambiente para o script Spark
-        env_vars=env_vars_credentials,
+        # Injeta as credenciais e o PATH corrigido como variáveis de ambiente
+        env_vars=env_vars,
     )
 """
 
