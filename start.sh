@@ -8,6 +8,14 @@ source "$DIR/.venv/bin/activate"
 # Change to the script's directory to ensure correct relative paths
 cd "$DIR"
 
+# Attempt to pull the latest changes
+echo "Tentando atualizar o repositório..."
+if git pull; then
+    echo "Repositório atualizado com sucesso."
+else
+    echo "AVISO: Falha ao atualizar o repositório. Usando a versão local."
+fi
+
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
   echo "Loading environment variables from .env file..."
