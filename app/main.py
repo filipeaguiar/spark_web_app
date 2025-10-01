@@ -52,11 +52,11 @@ def get_minio_credentials(aws_conn_id: str) -> dict:
     # O endpoint_url geralmente está no campo 'extra' da conexão
     endpoint_url = hook.conn.extra_dejson.get('endpoint_url')
 
-    return {
+    return {{
         "MINIO_ENDPOINT_URL": endpoint_url,
         "MINIO_ACCESS_KEY": credentials.access_key,
         "MINIO_SECRET_KEY": credentials.secret_key,
-    }
+    }}
 
 with DAG(
     dag_id="{dag_id}",
