@@ -48,7 +48,8 @@ def get_minio_credentials(aws_conn_id: str) -> dict:
     credentials = session.get_credentials()
     
     # O endpoint_url geralmente está no campo 'extra' da conexão
-    endpoint_url = hook.conn.extra_dejson.get('endpoint_url')
+    connection = hook.get_connection(aws_conn_id)
+    endpoint_url = connection.extra_dejson.get('endpoint_url')
 
     return {{
         "MINIO_ENDPOINT_URL": endpoint_url,
