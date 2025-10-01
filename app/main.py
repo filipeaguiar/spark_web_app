@@ -284,8 +284,7 @@ async def generate_dag(query_id: str):
         base_filename = query_data["output_dir_name"]
         dag_id = f"spark_job_{base_filename}"
         
-        project_root = "/home/filipe/Documentos/Projetos/spark/spark_web_app"
-        spark_executor_path = os.path.join(project_root, "spark_executor.py")
+        spark_executor_path = "/home/adm-local/airflow/dags/scripts/spark_executor.py"
 
         airflow_dags_dir = "/home/adm-local/airflow/dags"
         airflow_sql_dir = os.path.join(airflow_dags_dir, "sql")
