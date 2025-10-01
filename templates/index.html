@@ -50,7 +50,8 @@
 
         <div id="action-buttons-container" class="action-buttons hidden">
             <button id="download-sql-button"><i class="fa-solid fa-download"></i>Download SQL</button>
-            <button id="execute-button"><i class="fa-solid fa-play"></i>Executar Consulta</button>
+            <button id="generate-dag-button" disabled><i class="fa-solid fa-cogs"></i> Gerar DAG</button>
+            <button id="execute-button" disabled><i class="fa-solid fa-play"></i>Executar Consulta</button>
         </div>
 
         <div id="final-message" class="hidden"></div>
@@ -69,6 +70,7 @@
         const tablesStatusTbody = document.getElementById('tables-status-tbody');
         const actionButtonsContainer = document.getElementById('action-buttons-container');
         const executeButton = document.getElementById('execute-button');
+        const generateDagButton = document.getElementById('generate-dag-button');
         const downloadSqlButton = document.getElementById('download-sql-button');
         const finalMessage = document.getElementById('final-message');
 
@@ -79,6 +81,7 @@
         sqlFileInput.addEventListener('change', handleFileSelection);
         form.addEventListener('submit', handleVerificationSubmit);
         executeButton.addEventListener('click', handleExecuteJob);
+        generateDagButton.addEventListener('click', handleGenerateDag);
         downloadSqlButton.addEventListener('click', handleDownloadSql);
 
         // --- Drag and Drop Listeners ---
@@ -144,6 +147,7 @@
             }
 
             executeButton.disabled = !result.success;
+            generateDagButton.disabled = !result.success;
             if (result.success) {
                 resultMessage.className = 'success';
                 currentQueryId = result.query_id;
@@ -163,6 +167,33 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        async function handleGenerateDag() {
+            if (!currentQueryId) return;
+
+            executeButton.disabled = true;
+            generateDagButton.disabled = true;
+
+            finalMessage.classList.remove('hidden');
+            finalMessage.textContent = 'Gerando arquivo DAG...';
+            finalMessage.className = 'info';
+
+            try {
+                const response = await fetch(`/generate-dag?query_id=${currentQueryId}`, { method: 'POST' });
+                const result = await response.json();
+
+                if (response.ok) {
+                    finalMessage.textContent = result.message || 'DAG gerada com sucesso!';
+                    finalMessage.className = 'success';
+                } else {
+                    finalMessage.textContent = result.detail || 'Ocorreu um erro ao gerar a DAG.';
+                    finalMessage.className = 'error';
+                }
+            } catch (error) {
+                finalMessage.textContent = 'Erro de conexão ao gerar a DAG.';
+                finalMessage.className = 'error';
+            }
         }
 
         function showConnectionError() {
@@ -198,7 +229,7 @@
                 if (result.status === 'success' || result.status === 'failed') {
                     clearInterval(intervalId);
                     spinner.classList.add('hidden');
-                    finalMessage.className = result.status === 'success' ? 'success' : 'error';
+                    finalMessage.className = result.status === 'success' ? 'error' : 'error';
                 }
             } catch (error) {
                 clearInterval(intervalId);
