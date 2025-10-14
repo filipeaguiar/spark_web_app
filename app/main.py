@@ -28,7 +28,7 @@ VALIDATED_QUERIES = {}
 #  Template da DAG
 # =============================================================================
 
-DAG_TEMPLATE = """
+DAG_TEMPLATE = '''
 import os
 import pendulum
 import shutil
@@ -70,15 +70,14 @@ LOCAL_JARS_PATHS = (
     f"{SPARK_JARS_DIR}/{AWS_SDK_BUNDLE_JAR}"
 )
 
-CHANGELOG = '''
+CHANGELOG = \'\'\'
 # Changelog
 
 - v1.0.0 (2025-14-10): Versão inicial.
-'''
+\'\'\'
 
 # Configurar SPARK_HOME globalmente para que o Airflow o leia
 os.environ['SPARK_HOME'] = SPARK_INSTALLATION_PATH
-
 
 @dag(
     dag_id="$dag_id",
@@ -97,7 +96,7 @@ os.environ['SPARK_HOME'] = SPARK_INSTALLATION_PATH
         'version': DAG_VERSION,
         'description': 'Executa query SQL via Spark e salva no MinIO',
     },
-    doc_md=f'''
+    doc_md=f\'\'\'
     # 🚀 Spark SQL Executor - Unview Query
     
     **Versão:** {DAG_VERSION}  
@@ -123,18 +122,18 @@ os.environ['SPARK_HOME'] = SPARK_INSTALLATION_PATH
     ---
     
     {CHANGELOG}
-    ''',
+    \'\'\',
 )
 def spark_sql_executor_dag():
-    """
+    \'\'\
     DAG que executa job Spark em modo local com credenciais dinâmicas do MinIO.
-    """
+    \'\'\
     
     @task
     def check_spark_environment():
-        """
+        \'\'\
         Verifica se os JARs necessários existem e se o binário Spark está acessível.
-        """
+        \'\'\
         log = LoggingMixin().log
         
         log.info("=" * 80)
@@ -163,9 +162,9 @@ def spark_sql_executor_dag():
     
     @task
     def run_spark_job(env_checks: dict) -> str:
-        """
+        \'\'\
         Executa o job Spark usando subprocess.run para forçar a execução.
-        """
+        \'\'\
         log = LoggingMixin().log
         
         log.info("=" * 80)
@@ -316,7 +315,7 @@ def spark_sql_executor_dag():
 
 # Instanciar a DAG
 spark_sql_executor_dag()
-"""
+'''
 
 # =============================================================================
 #  Lógica de Negócio
