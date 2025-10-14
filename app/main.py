@@ -335,9 +335,20 @@ def parse_sql_for_tables(sql: str) -> list[str]:
 
 def check_tables_in_minio(tables: list[str]) -> tuple[list[str], list[str]]:
     print(f"Verificando tabelas no MinIO: {tables}")
-    with open('../credentials.json') as f:
-        creds = json.load(f)
-    s3 = boto3.client('s3', endpoint_url='http://10.34.0.82:9000', aws_access_key_id=creds['accessKey'], aws_secret_access_key=creds['secretKey'])
+
+    minio_endpoint = os.environ.get("MINIO_ENDPOINT_URL")
+    minio_access_key = os.environ.get("MINIO_ACCESS_KEY")
+    minio_secret_key = os.environ.get("MINIO_SECRET_KEY")
+
+    if not all([minio_endpoint, minio_access_key, minio_secret_key]):
+        raise ValueError("As variáveis de ambiente MINIO_ENDPOINT_URL, MINIO_ACCESS_KEY, e MINIO_SECRET_KEY devem ser definidas.")
+
+    s3 = boto3.client(
+        's3',
+        endpoint_url=minio_endpoint,
+        aws_access_key_id=minio_access_key,
+        aws_secret_access_key=minio_secret_key
+    )
     found, missing = [], []
     for table in tables:
         response = s3.list_objects_v2(Bucket='bronze', Prefix=f"aghu/{table}/", MaxKeys=1)
