@@ -1,8 +1,9 @@
 fastapi
 uvicorn[standard]
 python-multipart
-boto3
-git+https://github.com/filipeaguiar/sql-unviewer.git
 pyspark
-sqlglot
+boto3
+python-dotenv
 jinja2
+sqlglot
+git+https://github.com/filipeaguiar/sql-unviewer.git

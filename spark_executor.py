@@ -1,4 +1,3 @@
-
 import os
 import argparse
 import sqlglot
@@ -28,7 +27,6 @@ def main():
     print(f"Iniciando job Spark para o arquivo: {args.sql_file}")
     print(f"Caminho de saída: {args.output_path}")
 
-    # --- Carregar Configurações do Ambiente ---
     minio_endpoint = os.environ.get("MINIO_ENDPOINT_URL")
     minio_access_key = os.environ.get("MINIO_ACCESS_KEY")
     minio_secret_key = os.environ.get("MINIO_SECRET_KEY")
@@ -38,11 +36,9 @@ def main():
 
     spark = None
     try:
-        # --- Configurar e Iniciar Sessão Spark ---
         print("Configurando a sessão Spark...")
         spark = (
             SparkSession.builder.appName(f"SparkExecutor-{os.path.basename(args.sql_file)}")
-            .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262")
             .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint)
             .config("spark.hadoop.fs.s3a.access.key", minio_access_key)
             .config("spark.hadoop.fs.s3a.secret.key", minio_secret_key)
@@ -53,7 +49,6 @@ def main():
         )
         print("Sessão Spark iniciada com sucesso.")
 
-        # --- Ler e Analisar a Consulta SQL ---
         with open(args.sql_file, 'r', encoding='utf-8') as f:
             sql_query = f.read()
 
@@ -61,7 +56,6 @@ def main():
         if not tables:
             raise ValueError("Nenhuma tabela encontrada no arquivo SQL.")
 
-        # --- Criar Views Temporárias ---
         print("Criando views temporárias para as tabelas...")
         for table_name in tables:
             table_path = f"s3a://bronze/aghu/{table_name}/"
@@ -70,12 +64,9 @@ def main():
             df.createOrReplaceTempView(table_name)
             print(f"View temporária '{table_name}' criada.")
 
-        # --- Executar Consulta e Salvar Resultado ---
         print("Executando a consulta principal...")
-        # Transpilar para o dialeto Spark e normalizar para minúsculas
         spark_sql = sqlglot.transpile(sql_query, read="postgres", write="spark", normalize=True)[0]
         query_cleaned = spark_sql.replace("agh.", "").strip().rstrip(';')
-        
         result_df = spark.sql(query_cleaned)
 
         print(f"Salvando resultado em '{args.output_path}'...")
