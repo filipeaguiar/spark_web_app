@@ -1,4 +1,8 @@
 import uvicorn
+from dotenv import load_dotenv
+
+# Carrega as variáveis de ambiente do arquivo .env
+load_dotenv()
 
 if __name__ == "__main__":
     # Inicia o servidor web SEM o recarregamento automático
