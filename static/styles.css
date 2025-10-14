@@ -262,7 +262,43 @@ button:disabled {
 .error { background-color: rgba(239, 68, 68, 0.1); color: var(--accent-error); border-left: 3px solid var(--accent-error); }
 .info { background-color: rgba(59, 130, 246, 0.1); color: var(--accent-info); border-left: 3px solid var(--accent-info); }
 #final-message.success { color: var(--accent-success); }
-#final-message.failed { color: var(--accent-error); }
+        <div id="final-message" class="hidden"></div>
+    </div>
+
+    <style>
+        /* Estilos para o novo formulário de configuração da DAG */
+        #dag-config-card {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+        #dag-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+
+        #dag-form input[type="text"],
+        #dag-form select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Garante que o padding não afete a largura total */
+            font-size: 14px;
+        }
+
+        #dag-form button {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+
+    <script>
 
 
 /* Modern Spinner */
