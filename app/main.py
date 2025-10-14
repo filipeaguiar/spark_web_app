@@ -386,6 +386,8 @@ async def upload_and_verify(file: UploadFile = File(...)):
         base_filename = file.filename.lower().replace('.sql', '').replace(' ', '_').replace('.', '_')
         VALIDATED_QUERIES[query_id] = {"query": expanded_sql, "output_dir_name": base_filename}
         
+        return {"success": True, "message": "Sucesso! Todas as tabelas foram encontradas.", "query_id": query_id, "tables_status": tables_status, "expanded_sql": expanded_sql}
+        
     except Exception as e:
         error_details = traceback.format_exc()
         print(error_details)
