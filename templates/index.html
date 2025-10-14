@@ -48,10 +48,28 @@
             </div>
         </div>
 
-        <div id="action-buttons-container" class="action-buttons hidden">
-            <button id="download-sql-button"><i class="fa-solid fa-download"></i>Download SQL</button>
-            <button id="generate-dag-button" disabled><i class="fa-solid fa-cogs"></i> Gerar DAG</button>
-            <button id="execute-button" disabled><i class="fa-solid fa-play"></i>Executar Consulta</button>
+        <div id="action-buttons-container" class="hidden">
+            <button id="download-sql-button"><i class="fa-solid fa-download"></i> Download SQL Expandido</button>
+        </div>
+
+        <div id="dag-config-card" class="result-card hidden">
+            <h2><i class="fa-solid fa-sliders"></i> Configuração da DAG</h2>
+            <div id="dag-form">
+                <label for="dag-name">Nome da DAG:</label>
+                <input type="text" id="dag-name" name="dag-name" placeholder="Ex: relatorio_vendas_diarias" required>
+                
+                <label for="bucket-select">Bucket de Destino:</label>
+                <select id="bucket-select" name="bucket">
+                    <option value="silver">Silver</option>
+                    <option value="gold">Gold</option>
+                    <option value="bronze">Bronze</option>
+                </select>
+
+                <label for="bucket-path">Caminho no Bucket:</label>
+                <input type="text" id="bucket-path" name="bucket-path" placeholder="Ex: relatorios/vendas" required>
+
+                <button id="generate-dag-button"><i class="fa-solid fa-cogs"></i> Gerar DAG</button>
+            </div>
         </div>
 
         <div id="final-message" class="hidden"></div>
@@ -70,6 +88,7 @@
         const tablesStatusTbody = document.getElementById('tables-status-tbody');
         const actionButtonsContainer = document.getElementById('action-buttons-container');
         const executeButton = document.getElementById('execute-button');
+        const dagConfigCard = document.getElementById('dag-config-card');
         const generateDagButton = document.getElementById('generate-dag-button');
         const downloadSqlButton = document.getElementById('download-sql-button');
         const finalMessage = document.getElementById('final-message');
@@ -80,7 +99,6 @@
         // --- Event Listeners ---
         sqlFileInput.addEventListener('change', handleFileSelection);
         form.addEventListener('submit', handleVerificationSubmit);
-        executeButton.addEventListener('click', handleExecuteJob);
         generateDagButton.addEventListener('click', handleGenerateDag);
         downloadSqlButton.addEventListener('click', handleDownloadSql);
 
@@ -103,6 +121,8 @@
                 fileNameDisplay.innerHTML = `<i class="fa-solid fa-file-code"></i> ${fileName}`;
                 fileNameDisplay.classList.remove('hidden');
                 verifyButton.disabled = false;
+                // Pré-preenche o nome da DAG
+                document.getElementById('dag-name').value = fileName.toLowerCase().replace('.sql', '').replace(/[^a-z0-9_]/g, '_');
             }
         }
 
@@ -139,18 +159,14 @@
                     const statusClass = status.found ? 'found' : 'missing';
                     const statusIcon = status.found ? 'fa-check' : 'fa-xmark';
                     const statusText = status.found ? 'Encontrada' : 'Não Encontrada';
-                    return `<tr>
-                                <td>${status.name}</td>
-                                <td><span class="status-indicator ${statusClass}"><i class="fa-solid ${statusIcon}"></i> ${statusText}</span></td>
-                            </tr>`;
+                    return `<tr>\n                                <td>${status.name}</td>\n                                <td><span class="status-indicator ${statusClass}"><i class="fa-solid ${statusIcon}"></i> ${statusText}</span></td>\n                            </tr>`;
                 }).join('');
             }
 
-            executeButton.disabled = !result.success;
-            generateDagButton.disabled = !result.success;
             if (result.success) {
                 resultMessage.className = 'success';
                 currentQueryId = result.query_id;
+                dagConfigCard.classList.remove('hidden'); // Mostra o formulário da DAG
             } else {
                 resultMessage.className = 'error';
             }
@@ -172,15 +188,32 @@
         async function handleGenerateDag() {
             if (!currentQueryId) return;
 
-            executeButton.disabled = true;
-            generateDagButton.disabled = true;
+            const dagName = document.getElementById('dag-name').value;
+            const bucket = document.getElementById('bucket-select').value;
+            const path = document.getElementById('bucket-path').value;
+
+            if (!dagName || !path) {
+                alert('Por favor, preencha o nome da DAG e o caminho no bucket.');
+                return;
+            }
 
             finalMessage.classList.remove('hidden');
             finalMessage.textContent = 'Gerando arquivo DAG...';
             finalMessage.className = 'info';
 
             try {
-                const response = await fetch(`/generate-dag?query_id=${currentQueryId}`, { method: 'POST' });
+                const response = await fetch('/generate-dag', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query_id: currentQueryId,
+                        bucket: bucket,
+                        dag_name: dagName,
+                        path: path
+                    })
+                });
                 const result = await response.json();
 
                 if (response.ok) {
@@ -192,49 +225,6 @@
                 }
             } catch (error) {
                 finalMessage.textContent = 'Erro de conexão ao gerar a DAG.';
-                finalMessage.className = 'error';
-            }
-        }
-
-        function showConnectionError() {
-            spinner.classList.add('hidden');
-            resultCard.classList.remove('hidden');
-            resultMessage.textContent = 'Erro de conexão com o servidor.';
-            resultMessage.className = 'error';
-        }
-
-        async function handleExecuteJob() {
-            if (!currentQueryId) return;
-            resultCard.classList.add('hidden');
-            actionButtonsContainer.classList.add('hidden');
-            spinner.classList.remove('hidden');
-            finalMessage.classList.remove('hidden');
-            finalMessage.textContent = 'Iniciando job... Isso pode levar alguns minutos.';
-            finalMessage.className = 'info';
-            try {
-                await fetch(`/execute-job?query_id=${currentQueryId}`, { method: 'POST' });
-                const intervalId = setInterval(() => checkJobStatus(currentQueryId, intervalId), 3000);
-            } catch (error) {
-                spinner.classList.add('hidden');
-                finalMessage.textContent = 'Erro ao iniciar o job.';
-                finalMessage.className = 'error';
-            }
-        }
-
-        async function checkJobStatus(queryId, intervalId) {
-            try {
-                const response = await fetch(`/job-status/${queryId}`);
-                const result = await response.json();
-                finalMessage.textContent = result.message || 'Job em execução...';
-                if (result.status === 'success' || result.status === 'failed') {
-                    clearInterval(intervalId);
-                    spinner.classList.add('hidden');
-                    finalMessage.className = result.status === 'success' ? 'error' : 'error';
-                }
-            } catch (error) {
-                clearInterval(intervalId);
-                spinner.classList.add('hidden');
-                finalMessage.textContent = 'Erro de conexão ao verificar status do job.';
                 finalMessage.className = 'error';
             }
         }

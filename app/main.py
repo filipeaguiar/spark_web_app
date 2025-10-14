@@ -136,22 +136,25 @@ async def upload_and_verify(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate-dag")
-async def generate_dag(query_id: str):
-    query_data = VALIDATED_QUERIES.get(query_id)
+async def generate_dag(request: models.DagGenerationRequest):
+    query_data = VALIDATED_QUERIES.get(request.query_id)
     if not query_data:
         raise HTTPException(status_code=404, detail="ID da consulta inválido ou expirado.")
 
     try:
-        base_filename = query_data["output_dir_name"]
-        dag_id = f"spark_job_{base_filename}"
+        # Sanitizar nomes para evitar problemas com caminhos e IDs
+        dag_name_sanitized = request.dag_name.lower().replace(' ', '_')
+        path_sanitized = request.path.strip('/')
+
+        dag_id = f"spark_job_{dag_name_sanitized}"
         
         spark_executor_path = "/home/adm-local/airflow/dags/scripts/spark_executor.py"
         airflow_dags_dir = "/home/adm-local/airflow/dags"
         airflow_sql_dir = os.path.join(airflow_dags_dir, "sql")
         
-        sql_file_path = os.path.join(airflow_sql_dir, f"{base_filename}.sql")
-        dag_file_path = os.path.join(airflow_dags_dir, f"dag_{base_filename}.py")
-        output_path = f"s3a://silver/faturamento/{base_filename}/"
+        sql_file_path = os.path.join(airflow_sql_dir, f"{dag_name_sanitized}.sql")
+        dag_file_path = os.path.join(airflow_dags_dir, f"dag_{dag_name_sanitized}.py")
+        output_path = f"s3a://{request.bucket}/{path_sanitized}/"
 
         os.makedirs(airflow_sql_dir, exist_ok=True)
 

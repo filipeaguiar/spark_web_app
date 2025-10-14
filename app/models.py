@@ -19,3 +19,9 @@ class JobSubmissionResponse(BaseModel):
 class JobStatus(BaseModel):
     status: str
     message: str
+
+class DagGenerationRequest(BaseModel):
+    query_id: str
+    bucket: str
+    dag_name: str
+    path: str
