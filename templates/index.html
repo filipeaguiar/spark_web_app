@@ -134,7 +134,9 @@
             formData.append('file', sqlFileInput.files[0]);
             try {
                 const response = await fetch('/upload-and-verify', { method: 'POST', body: formData });
+                console.log('Raw response from server:', response);
                 const result = await response.json();
+                console.log('Parsed JSON result:', result);
                 updateVerificationUI(result);
             } catch (error) {
                 showConnectionError();
